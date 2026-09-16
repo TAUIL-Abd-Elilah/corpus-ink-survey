@@ -1,62 +1,51 @@
-[
- {
-  "segment": "z_dbg_gen_00215",
-  "direction": "forward",
-  "n_ckpt": 4,
-  "area_cm2": 6.44,
-  "unanimous_gt05": 0.03499,
-  "unanimous_gt075": 0.00596,
-  "best_window": 0.1237,
-  "n_windows": 48
+{
+ "control PHerc0139 w043": {
+  "area_cm2": 9.0,
+  "unanimous_gt05": 0.08834,
+  "unanimous_gt075": 0.04269,
+  "conf_ratio": 2.07,
+  "vs_control": 1.0
  },
- {
-  "segment": "z_dbg_gen_00215",
-  "direction": "reverse",
-  "n_ckpt": 4,
-  "area_cm2": 6.38,
-  "unanimous_gt05": 0.03456,
-  "unanimous_gt075": 0.00556,
-  "best_window": 0.1232,
-  "n_windows": 48
+ "z_dbg_gen_00215 forward": {
+  "area_cm2": 7.18,
+  "unanimous_gt05": 0.03506,
+  "unanimous_gt075": 0.00613,
+  "conf_ratio": 5.72,
+  "vs_control": 7.0
  },
- {
-  "segment": "z_dbg_gen_00260",
-  "direction": "forward",
-  "n_ckpt": 4,
-  "area_cm2": 11.33,
-  "unanimous_gt05": 0.03005,
-  "unanimous_gt075": 0.00514,
-  "best_window": 0.1468,
-  "n_windows": 98
+ "z_dbg_gen_00215 reverse": {
+  "area_cm2": 7.18,
+  "unanimous_gt05": 0.0349,
+  "unanimous_gt075": 0.00563,
+  "conf_ratio": 6.2,
+  "vs_control": 7.6
  },
- {
-  "segment": "z_dbg_gen_00701",
-  "direction": "forward",
-  "n_ckpt": 4,
-  "area_cm2": 27.35,
-  "unanimous_gt05": 0.03153,
-  "unanimous_gt075": 0.00484,
-  "best_window": 0.1402,
-  "n_windows": 294
+ "z_dbg_gen_00260 forward": {
+  "area_cm2": 12.43,
+  "unanimous_gt05": 0.03015,
+  "unanimous_gt075": 0.00577,
+  "conf_ratio": 5.22,
+  "vs_control": 7.4
  },
- {
-  "segment": "z_dbg_gen_00260",
-  "direction": "reverse",
-  "n_ckpt": 4,
-  "area_cm2": 11.44,
-  "unanimous_gt05": 0.03165,
-  "unanimous_gt075": 0.00476,
-  "best_window": 0.1529,
-  "n_windows": 98
+ "z_dbg_gen_00260 reverse": {
+  "area_cm2": 12.43,
+  "unanimous_gt05": 0.0309,
+  "unanimous_gt075": 0.00489,
+  "conf_ratio": 6.32,
+  "vs_control": 8.7
  },
- {
-  "segment": "z_dbg_gen_00701",
-  "direction": "reverse",
-  "n_ckpt": 4,
-  "area_cm2": 26.97,
-  "unanimous_gt05": 0.02791,
-  "unanimous_gt075": 0.00439,
-  "best_window": 0.1349,
-  "n_windows": 294
+ "z_dbg_gen_00701 forward": {
+  "area_cm2": 30.0,
+  "unanimous_gt05": 0.03097,
+  "unanimous_gt075": 0.00499,
+  "conf_ratio": 6.21,
+  "vs_control": 8.6
+ },
+ "z_dbg_gen_00701 reverse": {
+  "area_cm2": 30.0,
+  "unanimous_gt05": 0.02808,
+  "unanimous_gt075": 0.00473,
+  "conf_ratio": 5.93,
+  "vs_control": 9.0
  }
-]
+}

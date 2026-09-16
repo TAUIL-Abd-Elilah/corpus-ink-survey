@@ -54,7 +54,9 @@ VOLUMES = {
 
 # firstletters.md section 4.3 standing rule, and the same-day control it is read against
 ERODE_PX = 64
-CONTROL = {"unanimous_gt05": 0.07640, "unanimous_gt075": 0.03694, "conf_ratio": 2.07}
+# PHerc0139 w043 scored by score() itself at the SAME 4 checkpoints as CKPTS (fixed mask).
+# Until 2026-09-16 this held the 8-checkpoint figure (0.03694), which is not comparable.
+CONTROL = {"unanimous_gt05": 0.08834, "unanimous_gt075": 0.04269, "conf_ratio": 2.07}
 
 
 def voxel_um(scroll):
@@ -68,8 +70,13 @@ def rescale(p):
 
 def score(pred_paths, vox):
     """Unanimous minimum across checkpoints, over covered pixels eroded by the model's radius."""
-    S = np.stack([rescale(tifffile.imread(f)) for f in sorted(pred_paths)])
-    cov = S.max(0) > 0
+    R = np.stack([tifffile.imread(f) for f in sorted(pred_paths)])
+    S = np.stack([rescale(r) for r in R])
+    # Coverage is where the model produced output (raw > 0). It must not be taken after rescale:
+    # rescale maps every confident no-ink value (<= 0.25) to 0, so `S.max(0) > 0` dropped blank
+    # papyrus from the denominator and the 64 px erosion then cut square holes around it -- 37% of
+    # the known-ink control's area. Fixed 2026-09-16; scores before that date used the bad mask.
+    cov = R.max(0) > 0
     k = 2 * ERODE_PX + 1
     cov = cv2.erode(cov.astype(np.uint8), np.ones((k, k), np.uint8)).astype(bool)
     if cov.sum() < 1000:
@@ -122,13 +129,23 @@ def main():
     ap.add_argument("--layers", type=int, default=31)
     ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--min-support", type=float, default=0.15)
-    ap.add_argument("--min-free-gb", type=float, default=2.0)
+    # A render can consume ~2 GB while it runs, so a 2 GB floor checked *before* starting lets
+    # the write cross it mid-flight and die with rc=1. That is what produced 19 spurious
+    # render_fail entries on 2026-09-14 as the disk filled. Leave room for a render plus slack.
+    ap.add_argument("--min-free-gb", type=float, default=4.0)
+    ap.add_argument("--retry-failed", action="store_true",
+                    help="re-attempt meshes recorded render_fail (they are usually "
+                         "environmental -- disk or network -- not bad geometry)")
     ap.add_argument("--shard", default="0/1",
                     help="i/N -- run only meshes whose rank %% N == i. The render is CPU-bound "
                          "and single-threaded (0.3%% chunk-miss rate on a 16-core box), so "
                          "several shards in parallel multiply throughput almost linearly. "
                          "Each shard writes to its own score file; merge with --tag.")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--rescore", action="store_true",
+                    help="re-run meshes whose scores predate the 2026-09-16 coverage-mask fix")
+    ap.add_argument("--keep-all", action="store_true",
+                    help="keep every prediction TIFF, so any mesh can be re-scored later")
     a = ap.parse_args()
 
     rows = plan(a.limit, [s for s in a.scrolls.split(",") if s], a.max_angle)
@@ -150,6 +167,18 @@ def main():
     scorep = (f"{P}/_fl/corpus_scores.json" if sn == 1
               else f"{P}/_fl/corpus_scores_{si}of{sn}.json")
     done = json.load(open(scorep)) if os.path.exists(scorep) else {}
+    if a.retry_failed:
+        drop = [k for k, v in done.items() if v.get("status") == "render_fail"]
+        for k in drop:
+            del done[k]
+        print(f"retrying {len(drop)} previously failed meshes", flush=True)
+    if a.rescore:
+        # Scores written before the 2026-09-16 mask fix cannot be recomputed: their predictions were
+        # deleted. Re-run those meshes end to end. The old file is backed up by the caller.
+        stale = [k for k, v in done.items() if v.get("status") == "done" and v.get("scoring") != "v2"]
+        for k in stale:
+            del done[k]
+        print(f"re-running {len(stale)} meshes scored with the pre-fix mask", flush=True)
 
     t_start = time.time()
     for n, r in enumerate(rows, 1):
@@ -216,8 +245,8 @@ def main():
         vox = voxel_um(r["scroll"])
         fwd = [p for p in preds if not p.endswith("_reverse.tif")]
         rev = [p for p in preds if p.endswith("_reverse.tif")]
-        rec = dict(status="done", support=round(support, 4), render_s=round(time.time() - t),
-                   **r)
+        rec = dict(status="done", scoring="v2", support=round(support, 4),
+                   render_s=round(time.time() - t), **r)
         keep = False
         for lab, group in (("forward", fwd), ("reverse", rev)):
             if len(group) < 2:
@@ -228,7 +257,7 @@ def main():
         done[name] = rec
         json.dump(done, open(scorep, "w"), indent=1)
 
-        if not keep:
+        if not keep and not a.keep_all:
             for p in preds:
                 try:
                     os.remove(p)
