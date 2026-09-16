@@ -1,8 +1,8 @@
 # Ink-surveying the public eligible-scroll corpus — and one false positive worth your time
 
-**237 cm² of the best-aligned public First-Letters surface, ink-surveyed under a
-control-calibrated rule. No text. One region passed two of four screens and is not ink — the
-write-up of *why* is the useful part.**
+**1,457 cm² of the best-aligned public First-Letters surface across all eight corpus scrolls,
+ink-surveyed under a control-calibrated rule. No text. Exactly one region passed two of four
+screens, and it is not ink — the write-up of *why* is the useful part.**
 
 Ongoing; numbers below are a snapshot. Data regenerates with `scripts/corpus_aggregate.py`.
 
@@ -21,16 +21,25 @@ against a same-day known-ink control (PHerc0139 w043).
 
 | scroll | meshes | cm² |
 |---|---:|---:|
-| PHerc0800 | 22 | 119.8 |
-| PHerc0813 | 15 | 60.3 |
-| PHerc0211 | 15 | 47.8 |
-| PHerc0125 | 3 | 7.1 |
-| PHerc0358 | 1 | 1.8 |
-| **total** | **56** | **236.6** |
+| PHerc0800 | 83 | 426.6 |
+| PHerc0211 | 64 | 338.1 |
+| PHerc0125 | 54 | 328.2 |
+| PHerc0813 | 57 | 316.4 |
+| PHerc0257 | 5 | 17.1 |
+| PHerc0826 | 3 | 13.2 |
+| PHerc0358 | 3 | 11.8 |
+| PHerc0268 | 2 | 5.7 |
+| **total** | **271** | **1,457.2** |
 
 Control: `>0.75 = 0.03694`, confidence ratio `2.07`.
-Survey: **min 2.3× below control, median 62.5×, max 5,872×**; ratio median **9.48** vs 2.07;
-6 meshes with nothing above 0.75 at all. **No text found.**
+Survey: **min 2.3× below control, median 61.7×, max 5,872×**; ratio median **8.77** vs 2.07;
+10 meshes with nothing above 0.75 at all. **No text found.** Only one mesh clears both
+coverage (<5× below control) and crispness (ratio <3.0) — the false positive below.
+
+**On failures, because a raw count would mislead.** An earlier pass logged 110 render failures.
+Their logs show every one was environmental: 61 DNS outages (`getaddrinfo failed`), 22 processes
+killed at logoff, the rest SSL/stall timeouts. Retried on a healthy link, **2 remain** (1 render
+failure, 1 surface with no CT support).
 
 ## The false positive, which is the point
 
@@ -90,15 +99,17 @@ scored (~45 cm², 4 checkpoints, both directions):
 | 00260 | fwd / rev | 0.00514 / 0.00476 | 5.85 / 6.65 | 7.2× / 7.8× |
 | 00701 | fwd / rev | 0.00484 / 0.00439 | 6.51 / 6.36 | 7.6× / 8.4× |
 
-All diffuse, all 6–8× below control. **But read this with the geometry:** every published
-PHerc1447 surface, these three included, sits at
-[42–81° to its own sheets](https://github.com/TAUIL-Abd-Elilah/eligible-mesh-alignment) —
-0 of 14 within 30°. So these numbers are *consistent with* no text rather than decisive, and the
-honest statement is that the published PHerc1447 surfaces are not a fair test of the question.
+All diffuse, all 6–8× below control. **But read this with the geometry**
+([eligible-mesh-alignment](https://github.com/TAUIL-Abd-Elilah/eligible-mesh-alignment)): the
+published PHerc1447 surfaces sit on nonzero CT only a median of 46% of the time, and the ones that
+lie entirely on CT cut across the sheets at 50–71°. Two of these three — `00260` and `00701` — are
+among those fully on CT, and read 49.9° and 68.2°. So these numbers are *consistent with* no text
+rather than decisive, and the honest statement is that the published PHerc1447 surfaces are not a
+fair test of the question.
 
 ## Limitations
 
-- **Snapshot of an incomplete run** — 56 of 327 planned meshes.
+- **Snapshot of an incomplete run** — 271 of 327 planned meshes.
 - `ink_9um` localises the ink field but does not resolve letters even on training scrolls, so a
   negative here is "this generic model recovered no text", not "there is no ink".
 - Survey is bandwidth-bound at ~600 KB/s (~0.41 GB/cm²); concurrency past 4 streams does not help.
