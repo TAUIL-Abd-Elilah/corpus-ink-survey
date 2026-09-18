@@ -30,6 +30,7 @@ def num(label, value, decimals=4):
 
 
 def main():
+    global checks
     s64, s32 = load("eval_stride64.json"), load("eval_stride32.json")
     mc, lc, bl = load("matched_centring.json"), load("lead_continuity.json"), load("corpus_baseline.json")
 
@@ -53,7 +54,13 @@ def main():
     for case in ("control", "lead", "neg_a", "neg_b"):
         for b in mc[case]["bins"]:
             v = b["fwd_gt075"]
-            present(f"{case} bin {v}", ("%.4f" % v).rstrip("0") if ("%.4f" % v).endswith("0") else "%.4f" % v)
+            # the table prints 3 or 4 decimals depending on the value; accept either rounding
+            forms = {"%.4f" % v, "%.3f" % v, str(round(v, 4)), str(round(v, 3))}
+            checks += 1
+            ok = any(f in README for f in forms)
+            print("  %-56s %s" % (f"{case} bin {v}", "ok" if ok else "MISSING one of " + repr(sorted(forms))))
+            if not ok:
+                fails.append(f"{case} bin {v}")
 
     print("\ncontinuity in the band's own column, wrap w060")
     for mesh in ("PHerc0813_z12496_w060", "PHerc0813_z11904_w060", "PHerc0813_z13088_w060"):
@@ -66,7 +73,6 @@ def main():
     num("max", bl["max"])
     ratio = bl["lead_gt075"] / bl["max"]
     present("lead vs corpus max", "%.1fx the corpus" % ratio)
-    global checks
     checks += 1
     if abs(bl["lead_gt075"] / bl["control_gt075"] - 2.0) > 0.1:
         fails.append("lead is not ~2x the control")
