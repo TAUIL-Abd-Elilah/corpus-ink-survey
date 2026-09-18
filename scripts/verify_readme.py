@@ -1,0 +1,93 @@
+"""Re-assert the README's hecate numbers against the JSON in data/hecate/.
+
+This repository has already published one overstated claim (a "false positive" that the data did not
+support), so every figure in the hecate section is recomputed here and compared with the literal
+string in README.md. Exit code 1 if anything disagrees.
+"""
+import json
+import os
+import sys
+
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+README = open(os.path.join(HERE, "README.md"), encoding="utf-8").read()
+D = os.path.join(HERE, "data", "hecate")
+load = lambda n: json.load(open(os.path.join(D, n)))
+fails, checks = [], 0
+
+
+def present(label, needle):
+    global checks
+    checks += 1
+    ok = needle in README
+    print("  %-56s %s" % (label, "ok" if ok else "MISSING " + repr(needle)))
+    if not ok:
+        fails.append(label)
+
+
+def num(label, value, decimals=4):
+    """The README must contain this number, printed to `decimals`."""
+    present(label, ("%." + str(decimals) + "f") % value)
+
+
+def main():
+    s64, s32 = load("eval_stride64.json"), load("eval_stride32.json")
+    mc, lc, bl = load("matched_centring.json"), load("lead_continuity.json"), load("corpus_baseline.json")
+
+    print("calibration (stride 64, the survey's setting)")
+    for case in ("control", "lead", "neg_a", "neg_b"):
+        for d in ("forward", "reverse"):
+            num(f"{case} {d} >0.75", s64[case][d]["gt075"])
+        num(f"{case} forward >0.5", s64[case]["forward"]["gt05"], 4)
+        present(f"{case} forward ratio", str(s64[case]["forward"]["ratio"]))
+
+    print("\nink_9um on the same windows (stride-32 run recorded both)")
+    for case, expect in (("neg_a", 49), ("neg_b", 205)):
+        got = s32[case]["ink_9um_same_window"]["forward"]["vs_control"]
+        checks_ok = round(got) == expect
+        print("  %-56s %s" % (f"{case} ink_9um {got}x -> README {expect}x", "ok" if checks_ok else "MISMATCH"))
+        if not checks_ok:
+            fails.append(f"{case} ink_9um vs_control")
+        present(f"{case} {expect}x in README", f"{expect}x below")
+
+    print("\nmatched sheet centring (stride 32)")
+    for case in ("control", "lead", "neg_a", "neg_b"):
+        for b in mc[case]["bins"]:
+            v = b["fwd_gt075"]
+            present(f"{case} bin {v}", ("%.4f" % v).rstrip("0") if ("%.4f" % v).endswith("0") else "%.4f" % v)
+
+    print("\ncontinuity in the band's own column, wrap w060")
+    for mesh in ("PHerc0813_z12496_w060", "PHerc0813_z11904_w060", "PHerc0813_z13088_w060"):
+        num(f"{mesh} hot fraction", lc[mesh]["hot_fraction_in_column"])
+
+    print("\ncorpus baseline")
+    present("n meshes stated", f"{bl['n_meshes']} of 327")
+    num("median", bl["median"])
+    num("p90", bl["p90"])
+    num("max", bl["max"])
+    ratio = bl["lead_gt075"] / bl["max"]
+    present("lead vs corpus max", "%.1fx the corpus" % ratio)
+    global checks
+    checks += 1
+    if abs(bl["lead_gt075"] / bl["control_gt075"] - 2.0) > 0.1:
+        fails.append("lead is not ~2x the control")
+        print("  lead/control = %.2f, README says 2x" % (bl["lead_gt075"] / bl["control_gt075"]))
+    else:
+        print("  %-56s ok" % "lead / control ~ 2x")
+
+    print("\nclaims that must stay in the README")
+    for label, needle in [("candidate not discovery", "not a discovery"),
+                          ("no letterforms", "no\nletterforms"),
+                          ("known ink shows none either", "known ink at 9 um shows no letterforms either"),
+                          ("glue and stain still possible", "Ink, stain and glue are all\nstill consistent"),
+                          ("not a seam", "should\nnot fade 5x below and 35x above"),
+                          ("resampling requirement", "resampled to 9.6 um in all three axes")]:
+        present(label, needle)
+
+    print("\n%d checks, %d failed" % (checks, len(fails)))
+    for f in fails:
+        print("  FAILED:", f)
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
