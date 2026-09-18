@@ -31,6 +31,7 @@ import numpy as np
 import tifffile
 import zarr
 import cv2
+from scipy import ndimage as ndi
 
 P = r"D:/Competition/Vesuvius progress prizes"
 PY = r"C:/Users/PC/miniconda3/envs/vesuvius/python.exe"
@@ -57,6 +58,93 @@ ERODE_PX = 64
 # PHerc0139 w043 scored by score() itself at the SAME 4 checkpoints as CKPTS (fixed mask).
 # Until 2026-09-16 this held the 8-checkpoint figure (0.03694), which is not comparable.
 CONTROL = {"unanimous_gt05": 0.08834, "unanimous_gt075": 0.04269, "conf_ratio": 2.07}
+
+
+# Second model: the team's hecate 9.6 um checkpoint (huggingface.co/scrollprize/hecate @ 9cb86e5,
+# sha256 809f4f10...fe5d), run on the same render resampled to 9.6 um in all three axes as its card
+# requires. Run at XY stride 64 (no overlap), batch 16, one process on the GPU at a time: two shards
+# at stride 32 / batch 48 filled the 24 GB card and fell to ~7 patches/s. Calibration at exactly
+# these settings (_fl/hecate_eval_stride64.json, 2026-09-17): PHerc0139 w043 control forward
+# >0.75 = 0.06847; the PHerc0813 lead 0.13525; ink_9um-blank PHerc0813 meshes 0.00478 and 0.01466.
+HECATE_DIR = f"{P}/_fl/ckpt/hecate"
+HECATE_CONTROL_GT075 = 0.06847
+HECATE_ARGS = ["--precision", "bf16", "--batch-size", "16", "--stride", "64"]
+
+
+class GpuLock:
+    """Cross-process lock on a file (msvcrt byte lock; released by the OS if the holder dies)."""
+    def __init__(self, path=f"{P}/_fl/work/hecate_gpu.lock"):
+        self.path = path
+    def __enter__(self):
+        import msvcrt
+        self.f = open(self.path, "a+")
+        while True:
+            try:
+                self.f.seek(0)
+                msvcrt.locking(self.f.fileno(), msvcrt.LK_NBLCK, 1)
+                return self
+            except OSError:
+                time.sleep(2)
+    def __exit__(self, *exc):
+        import msvcrt
+        self.f.seek(0)
+        msvcrt.locking(self.f.fileno(), msvcrt.LK_UNLCK, 1)
+        self.f.close()
+
+
+def resample_96(rz, vox, dst):
+    """Identical arithmetic to _fl/hecate_eval.resample_to_target, one output layer at a time."""
+    f = vox / 9.6
+    a = zarr.open_group(rz, mode="r")["0"]
+    nz = a.shape[0]
+    first = ndi.zoom(np.asarray(a[0]), f, order=1)
+    zi = np.linspace(0, nz - 1, int(round(nz * f)))
+    g = zarr.open_group(dst, mode="w", zarr_format=2)
+    out = g.create_array("0", shape=(len(zi),) + first.shape, chunks=(len(zi), 256, 256), dtype="u1")
+    cache = {}
+    def layer(k):
+        if k not in cache:
+            cache.clear() if len(cache) > 2 else None
+            cache[k] = ndi.zoom(np.asarray(a[k]), f, order=1)
+        return cache[k]
+    for i, z in enumerate(zi):
+        lo = int(np.floor(z)); hi = min(lo + 1, nz - 1); t = float(z - lo)
+        out[i] = np.rint(layer(lo) * (1 - t) + layer(hi) * t).astype(np.uint8)
+    return dst
+
+
+def run_hecate(rz, name, vox, outdir, workdir):
+    """hecate forward and reverse on the resampled render; scored like hecate_eval.frac()."""
+    r96 = f"{workdir}/{name}_9.6.zarr"
+    shutil.rmtree(r96, ignore_errors=True)
+    resample_96(rz, vox, r96)
+    a = zarr.open_group(r96, mode="r")["0"]
+    z0 = a.shape[0] // 2 - 8
+    sup = np.asarray(a[z0:z0 + 16]).any(0)
+    k = 2 * ERODE_PX + 1
+    sup = cv2.erode(sup.astype(np.uint8), np.ones((k, k), np.uint8)).astype(bool)
+    res = {}
+    for d, flag in (("forward", []), ("reverse", ["--reverse"])):
+        png = f"{outdir}/{name}_hecate_{d}.png"
+        for old in (png, png.replace(".png", ".json")):
+            if os.path.exists(old):
+                os.remove(old)
+        with GpuLock():
+            rc = subprocess.call([PY, f"{HECATE_DIR}/hecate.py", "--checkpoint", f"{HECATE_DIR}/hecate_9.6um.pth",
+                                  "--input", r96, "--spacing-um", "9.6", "--output", png, "--device", "cuda"]
+                                 + HECATE_ARGS + flag,
+                                 stdout=open(f"{workdir}/{name}.hecate.log", "a"), stderr=subprocess.STDOUT)
+        img = cv2.imread(png, cv2.IMREAD_UNCHANGED) if rc == 0 else None
+        if img is None or sup.sum() < 1000:
+            res[d] = dict(error=f"rc={rc}" if rc else "no support")
+            continue
+        v = img[sup] / 255.0
+        g05, g075 = float((v > 0.5).mean()), float((v > 0.75).mean())
+        res[d] = dict(area_cm2=round(float(sup.sum()) * (9.6 / 1e4) ** 2, 2), gt05=round(g05, 5),
+                      gt075=round(g075, 5), conf_ratio=round(g05 / g075, 2) if g075 else None,
+                      vs_control=round(HECATE_CONTROL_GT075 / g075, 2) if g075 else None)
+    shutil.rmtree(r96, ignore_errors=True)
+    return res
 
 
 def voxel_um(scroll):
@@ -144,11 +232,21 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--rescore", action="store_true",
                     help="re-run meshes whose scores predate the 2026-09-16 coverage-mask fix")
+    ap.add_argument("--only", default="",
+                    help="comma-separated mesh names; run just these (used to prioritise a "
+                         "neighbourhood ahead of the queue, writing its own score file)")
+    ap.add_argument("--hecate", action="store_true",
+                    help="also score each render with hecate 9.6 um; with this flag, done meshes "
+                         "that lack hecate scores are re-rendered for hecate only (ink_9um kept)")
     ap.add_argument("--keep-all", action="store_true",
                     help="keep every prediction TIFF, so any mesh can be re-scored later")
     a = ap.parse_args()
 
     rows = plan(a.limit, [s for s in a.scrolls.split(",") if s], a.max_angle)
+    if a.only:
+        want = [x for x in a.only.split(",") if x]
+        rows = [r for r in rows if r["name"] in want]
+        print(f"--only: {len(rows)} of {len(want)} requested meshes are in the plan", flush=True)
     si, sn = (int(x) for x in a.shard.split("/"))
     if sn > 1:
         rows = [r for k, r in enumerate(rows) if k % sn == si]
@@ -164,7 +262,8 @@ def main():
     workdir = f"{P}/_fl/work/{a.tag}"
     os.makedirs(outdir, exist_ok=True)
     os.makedirs(workdir, exist_ok=True)
-    scorep = (f"{P}/_fl/corpus_scores.json" if sn == 1
+    scorep = (f"{P}/_fl/corpus_scores_{a.tag}.json" if a.only
+              else f"{P}/_fl/corpus_scores.json" if sn == 1
               else f"{P}/_fl/corpus_scores_{si}of{sn}.json")
     done = json.load(open(scorep)) if os.path.exists(scorep) else {}
     if a.retry_failed:
@@ -181,10 +280,20 @@ def main():
         print(f"re-running {len(stale)} meshes scored with the pre-fix mask", flush=True)
 
     t_start = time.time()
-    for n, r in enumerate(rows, 1):
+    # New meshes first; hecate-only backfill of already-scored meshes after, so the ink_9um survey
+    # completes before any time goes to the second model on old renders.
+    passes = [(ph, n, r) for ph in (("new", "backfill") if a.hecate else ("new",))
+              for n, r in enumerate(rows, 1)]
+    for phase, n, r in passes:
         name = r["name"]
         head = (f"[{n}/{len(rows)}] {name:26s} {r['area']:5.2f} cm2 {r['angle']:4.1f} deg")
+        backfill = False
         if name in done:
+            if not (a.hecate and done[name].get("status") == "done" and done[name].get("scoring") == "v2"
+                    and "hecate" not in done[name]):
+                continue
+            backfill = True
+        if (phase == "new") == backfill:
             continue
         free_gb = shutil.disk_usage(P).free / 1e9
         if free_gb < a.min_free_gb:
@@ -229,6 +338,25 @@ def main():
             shutil.rmtree(crop, ignore_errors=True); shutil.rmtree(rz, ignore_errors=True)
             continue
 
+        if backfill:
+            try:
+                done[name]["hecate"] = run_hecate(rz, name, voxel_um(r["scroll"]), outdir, workdir)
+            except Exception as e:  # never let the second model kill the survey
+                done[name]["hecate"] = dict(error=repr(e)[:200])
+            json.dump(done, open(scorep, "w"), indent=1)
+            shutil.rmtree(rz, ignore_errors=True); shutil.rmtree(crop, ignore_errors=True)
+            hf = done[name]["hecate"].get("forward") or {}
+            print(f"{head}: hecate backfill fwd >0.75 {hf.get('gt075')} "
+                  f"({hf.get('vs_control')}x below hecate control)", flush=True)
+            continue
+
+        hec = None
+        if a.hecate:
+            try:
+                hec = run_hecate(rz, name, voxel_um(r["scroll"]), outdir, workdir)
+            except Exception as e:
+                hec = dict(error=repr(e)[:200])
+
         preds = []
         for sd, st in CKPTS:
             out = f"{outdir}/{name}_s{sd}_{st}.tif"
@@ -247,6 +375,8 @@ def main():
         rev = [p for p in preds if p.endswith("_reverse.tif")]
         rec = dict(status="done", scoring="v2", support=round(support, 4),
                    render_s=round(time.time() - t), **r)
+        if hec is not None:
+            rec["hecate"] = hec
         keep = False
         for lab, group in (("forward", fwd), ("reverse", rev)):
             if len(group) < 2:

@@ -1,0 +1,74 @@
+{
+ "control": {
+  "forward": {
+   "gt05": 0.1278,
+   "gt075": 0.06847,
+   "ratio": 1.87,
+   "area_cm2": 9.0,
+   "seconds": 43,
+   "corr_vs_stride32": 0.871
+  },
+  "reverse": {
+   "gt05": 0.0387,
+   "gt075": 0.01699,
+   "ratio": 2.28,
+   "area_cm2": 9.0,
+   "seconds": 45,
+   "corr_vs_stride32": 0.833
+  }
+ },
+ "lead": {
+  "forward": {
+   "gt05": 0.22507,
+   "gt075": 0.13525,
+   "ratio": 1.66,
+   "area_cm2": 2.39,
+   "seconds": 17,
+   "corr_vs_stride32": 0.895
+  },
+  "reverse": {
+   "gt05": 0.04786,
+   "gt075": 0.01828,
+   "ratio": 2.62,
+   "area_cm2": 2.39,
+   "seconds": 18,
+   "corr_vs_stride32": 0.833
+  }
+ },
+ "neg_a": {
+  "forward": {
+   "gt05": 0.01959,
+   "gt075": 0.00478,
+   "ratio": 4.09,
+   "area_cm2": 2.35,
+   "seconds": 18,
+   "corr_vs_stride32": 0.73
+  },
+  "reverse": {
+   "gt05": 0.03743,
+   "gt075": 0.01613,
+   "ratio": 2.32,
+   "area_cm2": 2.35,
+   "seconds": 18,
+   "corr_vs_stride32": 0.811
+  }
+ },
+ "neg_b": {
+  "forward": {
+   "gt05": 0.03421,
+   "gt075": 0.01466,
+   "ratio": 2.33,
+   "area_cm2": 2.63,
+   "seconds": 20,
+   "corr_vs_stride32": 0.821
+  },
+  "reverse": {
+   "gt05": 0.05196,
+   "gt075": 0.02015,
+   "ratio": 2.58,
+   "area_cm2": 2.63,
+   "seconds": 19,
+   "corr_vs_stride32": 0.826
+  }
+ }
+}

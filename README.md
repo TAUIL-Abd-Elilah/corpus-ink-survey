@@ -3,9 +3,10 @@
 **1,667 cm² of the best-aligned public First Letters surface, 301 meshes across all eight corpus
 scrolls, run through `ink_9um` against a known-ink control. No letters seen.**
 
-**Being re-run.** On 16 September I found a scoring bug that affects every score-derived number
-in the earlier versions of this page. Fixing it also overturned the page's headline claim. All
-meshes are being re-scored from scratch; this page will be refreshed when that finishes.
+**Being re-run, now with two models.** On 16 September I found a scoring bug that affects every
+score-derived number in the earlier versions of this page, and fixing it overturned the page's headline
+claim. Every mesh is being re-rendered and re-scored, and each render is now also scored by the team's
+new **hecate 9.6 um** model (below). 222 of 327 meshes re-scored with `ink_9um`, 52 of those with hecate.
 
 ## Correction — 16 September 2026 (read this first)
 
@@ -84,6 +85,79 @@ could settle it. I cannot, from these outputs.
 
 The other seven flagged regions sit **15–124× below control** with the fixed mask, and fail on
 coverage alone ([`data/screen_flagged.json`](data/screen_flagged.json)).
+
+## A second model: hecate 9.6 um on the eligible corpus (17 September)
+
+The team published [`scrollprize/hecate`](https://huggingface.co/scrollprize/hecate) on 15 September,
+including a **9.6 um** checkpoint distilled from their 2.4 um canonical detector and trained partly on
+native coarse scans. Nobody had run it on the First Letters scrolls. It is a genuinely independent
+second opinion on this survey's strongest region, so the survey now scores every render with **both**
+models.
+
+Method: each render is resampled to 9.6 um in all three axes (the model card requires it; the script
+does not resample), run forward and reverse, stride 64, batch 16, bf16. Support = CT present in the 16
+central planes, eroded 64 px. Checkpoint commit `9cb86e5`, sha256 `809f4f10...fe5d`.
+
+### Calibration, and what a blank mesh looks like
+
+| case | hecate fwd >0.5 | **fwd >0.75** | ratio | rev >0.75 | ink_9um, same window |
+|---|---:|---:|---:|---:|---|
+| known ink, PHerc0139 w043 | 0.1278 | **0.0685** | 1.87 | 0.0170 | the control |
+| **PHerc0813_z12496_w060 (this survey's strongest region)** | 0.2251 | **0.1353** | 1.66 | 0.0183 | 3.1x below control |
+| PHerc0813_z6496_w060, ink_9um-blank | 0.0196 | 0.0048 | 4.09 | 0.0161 | 49x below |
+| PHerc0813_z13696_w060, ink_9um-blank | 0.0342 | 0.0147 | 2.33 | 0.0202 | 205x below |
+
+![four cases](figures/hecate_four_cases.png)
+
+hecate separates known ink from ink_9um-blank meshes by 5-14x, its map on the control correlates with
+ink_9um's at r = 0.61, and both models show the control's bottom text line.
+
+**Corpus baseline so far** (`data/hecate/corpus_baseline.json`, 52 of 327 meshes scored, run continuing):
+median **0.0058**, p90 0.0153, max 0.0234. The strongest region reads **0.1353** -- 5.8x the corpus
+maximum and 2x known ink.
+
+### Why the strong reading is not just "a sheet is centred here"
+
+hecate's hot pixels coincide with a sheet sitting at the render's centre, and a model that merely liked
+well-centred papyrus would light up blank meshes too. Binning pixels by sheet centring (central-minus-outer
+CT) into pooled quintiles, forward >0.75 (`scripts/hecate_matched.py`, stride 32):
+
+| | q1 (off-sheet) | q2 | q3 | q4 | q5 (well centred) |
+|---|---:|---:|---:|---:|---:|
+| known ink | 0.024 | 0.040 | 0.053 | 0.069 | 0.103 |
+| **strongest region** | **0.078** | **0.113** | **0.137** | **0.174** | **0.253** |
+| blank A | 0.0016 | 0.0024 | 0.0026 | 0.0050 | 0.0077 |
+| blank B | 0.0070 | 0.0117 | 0.0151 | 0.0159 | 0.0152 |
+
+Centring does modulate every case, and it does not explain the difference.
+
+### What the region actually is: a ~12 mm patch, not a seam, and not letters
+
+Across the full 74 mm mesh the ink_9um hot fraction is one band at mm 47-58 with a sharp onset and ~0
+elsewhere, though coverage is 52-70% throughout. Within the band's own (x, y) footprint on the same wrap
+(`scripts/lead_continuity.py`; wrap labels on this scroll are a median 2.84 mm apart, so only same-wrap
+meshes are comparable, and the column radius is 0.94 mm):
+
+| mesh, wrap w060 | hot fraction in the band's column | mesh-wide ink >0.75 |
+|---|---:|---:|
+| **z12496 (the region)** | **0.0484** | 0.01392 |
+| z11904, ~7 mm below | 0.0103 | 0.00322 |
+| z13088, ~7 mm above | 0.0014 | 0.00056 |
+
+CT on well-centred pixels: the sheet inside the band is the same thickness as beside it (~96 um vs 96 and
+86 um) but ~20% denser at the peak. A kollesis runs the full height of the roll, so a sheet join should
+not fade 5x below and 35x above within 7 mm.
+
+![band at full resolution](figures/lead_band_fullres.png)
+
+At full resolution the band is 1-2 mm blobs with two ~5 mm horizontal streaks in ink_9um and **no
+letterforms** -- but known ink at 9 um shows no letterforms either, so appearance cannot settle it.
+
+**Status.** A localised deposit roughly 12 mm wide and 7 mm tall, on one sheet of an eligible scroll,
+that **two independent team ink models flag**, one of them twice as strongly as known ink, while 52 other
+corpus meshes sit 6x lower. **It is a candidate location, not a discovery.** Ink, stain and glue are all
+still consistent with what is measured here; separating them needs a model that resolves letters or
+someone who reads 9 um CT for ink. If that is you, the numbers, scripts and predictions are all here.
 
 ## The survey
 
