@@ -159,6 +159,27 @@ corpus meshes sit 6x lower. **It is a candidate location, not a discovery.** Ink
 still consistent with what is measured here; separating them needs a model that resolves letters or
 someone who reads 9 um CT for ink. If that is you, the numbers, scripts and predictions are all here.
 
+### A test that did not separate it: hecate's 3D output
+
+hecate also predicts ink **in 3D**, meant to sit on the middle sheet of the render. Real ink is a thin
+layer on one face of the papyrus, so depth placement looked like a way to tell ink from bulk material.
+Run on the same volumes ([`scripts/hecate_3d.py`](scripts/hecate_3d.py)), over each case's own hot
+pixels, inside the model's evaluated depth window:
+
+| case | ink peak vs CT sheet peak | ink layer FWHM | sheet FWHM | peak probability |
+|---|---:|---:|---:|---:|
+| **known ink**, PHerc0139 w043 | +10 um | 48 um | 77 um | 0.53 |
+| **the candidate** | +29 um | 77 um | 115 um | 0.37 |
+| blank A, z6496_w060 | +29 um | 67 um | 96 um | 0.41 |
+| blank B, z13696_w060 | +0 um | 67 um | 67 um | 0.44 |
+
+![3D depth](figures/hecate_3d_depth.png)
+
+All four place the response in a layer thinner than the sheet, within +-30 um of the CT peak, and the
+cross-sections look alike. **So the 3D head does not separate the candidate from blank papyrus, and its
+output should not be read as confirmation.** Known ink does respond more strongly at its peak (0.53 vs
+0.37), which is a difference of degree, not of placement.
+
 ## The survey
 
 Input: [`pscamillo/vesuvius-eligible-meshes`](https://github.com/pscamillo/vesuvius-eligible-meshes)

@@ -80,6 +80,14 @@ def main():
     else:
         print("  %-56s ok" % "lead / control ~ 2x")
 
+    print("\n3D depth (the test that did not separate the cases)")
+    d3 = load("depth_3d.json")
+    for case in ("control", "lead", "neg_a", "neg_b"):
+        present(f"{case} offset", "%+.0f um" % d3[case]["offset_um"])
+        present(f"{case} ink FWHM", "%.0f um" % d3[case]["ink_fwhm_um"])
+        present(f"{case} peak p", "%.2f" % d3[case]["ink_max"])
+    present("3D does not separate", "does not separate the candidate from blank papyrus")
+
     print("\nclaims that must stay in the README")
     for label, needle in [("candidate not discovery", "not a discovery"),
                           ("no letterforms", "no\nletterforms"),
