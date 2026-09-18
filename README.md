@@ -131,9 +131,27 @@ hecate itself -- and score every window, the candidate's included, with one supp
 
 **The candidate is the highest window, but it is not alone.** Two earlier versions of this page
 overstated the gap: "5.8x the corpus maximum" compared a picked window with whole-mesh averages, and
-"3.3x the best corpus window" counted forward maps only. Which face a mesh's "forward" points at depends
-on how that mesh was fitted, so reverse counts as much as forward. `PHerc0813_z13088_w040` is the mesh directly above
+"3.3x the best corpus window" counted forward maps only. Both directions are compared because a response on
+either face is data; what the direction means physically is measured below. `PHerc0813_z13088_w040` is the mesh directly above
 the candidate, one wrap inward, and ink_9um ranks it third of 616 mesh-directions.
+
+### What the direction means: forward is the face that carries text
+
+Every mesh here uses the same orientation ([`scripts/mesh_orientation.py`](scripts/mesh_orientation.py):
+a circle fitted through each grid row gives the local centre of curvature, on the core's side). The surface
+normal points **toward the core** on all 320 of 320 corpus meshes and on the published
+PHerc0139 w043 mesh used as the known-ink control (outward share 0.003). The
+control's ink reads **forward**. So on every mesh, forward is the face that carries text on the control.
+
+That gives the direction a physical meaning. The PHerc0813 regions read **forward**, on the text face. The
+two PHerc0211 regions below read **reverse**, on the opposite face, which in a roll is usually left blank.
+And on ordinary papyrus hecate runs slightly high in reverse: reverse beats forward on
+62% of 159 meshes (median ratio 1.18), where
+ink_9um shows no such tilt (49% of 320, median 1.00).
+So a reverse response is weaker evidence than the same number forward. (An earlier version of this page
+said the direction "depends on how that mesh was fitted"; this measurement shows it does not.) Caveat:
+PHerc0211_z6720_w020 sits near the core, where the curvature fit is least certain (across its rows, a
+median 44% of normals point outward, against 3% for the corpus).
 
 ### A second region: PHerc0211_z6720_w020
 

@@ -107,6 +107,25 @@ def main():
         present(f"{case} peak p", "%.2f" % d3[case]["ink_max"])
     present("3D does not separate", "does not separate the candidate from blank papyrus")
 
+    print("\norientation: what forward means")
+    mo = load("mesh_orientation.json")
+    present("all meshes inward", f"all {mo['n_inward']} of {mo['n_meshes']} corpus meshes")
+    global_ok = mo["n_outward"] == 0
+    print("  %-56s %s" % ("no mesh points outward", "ok" if global_ok else "MISMATCH"))
+    checks += 1
+    if not global_ok:
+        fails.append("some meshes point outward -- README says all inward")
+    num("control outward share", mo["control_outward_share"], 3)
+    present("hecate reverse bias share", "%d%% of %d meshes" % (round(mo["hecate"]["share_rev_gt_fwd"] * 100), mo["hecate"]["n"]))
+    present("hecate reverse bias ratio", "median ratio %.2f" % mo["hecate"]["median_rev_over_fwd"])
+    present("ink_9um no tilt", "(%d%% of %d, median %.2f)" % (round(mo["ink_9um"]["share_rev_gt_fwd"] * 100), mo["ink_9um"]["n"], mo["ink_9um"]["median_rev_over_fwd"]))
+    present("false rationale retracted", 'said the direction "depends on how that mesh was fitted"')
+    checks += 1
+    bad = "Which face a mesh's \"forward\" points at depends" in README
+    print("  %-56s %s" % ("old false rationale gone from the body", "MISMATCH" if bad else "ok"))
+    if bad:
+        fails.append("the retracted 'depends on fitting' rationale is still asserted")
+
     print("\nclaims that must stay in the README")
     for label, needle in [("candidate not discovery", "not a discovery"),
                           ("no letterforms", "no\nletterforms"),
