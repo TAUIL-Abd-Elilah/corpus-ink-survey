@@ -71,14 +71,21 @@ def main():
     num("median", bl["median"])
     num("p90", bl["p90"])
     num("max", bl["max"])
-    ratio = bl["lead_gt075"] / bl["max"]
-    present("lead vs corpus max", "%.1fx the corpus" % ratio)
+    wm = load("window_max.json")
+    print("\nfair comparison: every mesh at its densest same-width window")
+    num("window median", wm["corpus_best_window_median"])
+    num("window p90", wm["corpus_best_window_p90"])
+    num("window max", wm["corpus_best_window_max"])
+    num("candidate window", wm["candidate_window_gt075"])
+    present("window ratio", "%.1fx the best\ncorpus window" % (wm["candidate_window_gt075"] / wm["corpus_best_window_max"]))
+    present("unfair basis admitted", "not a fair\nyardstick")
+    present("old 5.8x claim named", '"5.8x\nthe corpus maximum"')
     checks += 1
-    if abs(bl["lead_gt075"] / bl["control_gt075"] - 2.0) > 0.1:
-        fails.append("lead is not ~2x the control")
-        print("  lead/control = %.2f, README says 2x" % (bl["lead_gt075"] / bl["control_gt075"]))
+    if wm["candidate_window_gt075"] <= bl["control_gt075"]:
+        fails.append("candidate window is not above known ink")
+        print("  candidate window %.4f vs control %.4f" % (wm["candidate_window_gt075"], bl["control_gt075"]))
     else:
-        print("  %-56s ok" % "lead / control ~ 2x")
+        print("  %-56s ok" % "candidate window above known ink")
 
     print("\n3D depth (the test that did not separate the cases)")
     d3 = load("depth_3d.json")

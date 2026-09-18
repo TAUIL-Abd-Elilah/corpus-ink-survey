@@ -6,7 +6,7 @@ scrolls, run through `ink_9um` against a known-ink control. No letters seen.**
 **Being re-run, now with two models.** On 16 September I found a scoring bug that affects every
 score-derived number in the earlier versions of this page, and fixing it overturned the page's headline
 claim. Every mesh is being re-rendered and re-scored, and each render is now also scored by the team's
-new **hecate 9.6 um** model (below). 222 of 327 meshes re-scored with `ink_9um`, 52 of those with hecate.
+new **hecate 9.6 um** model (below). 270 of 327 meshes re-scored with `ink_9um`, 100 of those with hecate.
 
 ## Correction — 16 September 2026 (read this first)
 
@@ -112,9 +112,18 @@ central planes, eroded 64 px. Checkpoint commit `9cb86e5`, sha256 `809f4f10...fe
 hecate separates known ink from ink_9um-blank meshes by 5-14x, its map on the control correlates with
 ink_9um's at r = 0.61, and both models show the control's bottom text line.
 
-**Corpus baseline so far** (`data/hecate/corpus_baseline.json`, 52 of 327 meshes scored, run continuing):
-median **0.0058**, p90 0.0153, max 0.0234. The strongest region reads **0.1353** -- 5.8x the corpus
-maximum and 2x known ink.
+**Corpus baseline so far** (`data/hecate/corpus_baseline.json`, 100 of 327 meshes scored, run continuing):
+median **0.0059**, p90 0.0155, max 0.0234. Those are whole-mesh scores, which is **not a fair
+yardstick** for the strongest region: its 0.1353 comes from a window picked because ink_9um was densest
+there, and picking the best window inflates any score. (An earlier version of this page called it "5.8x
+the corpus maximum" on exactly that unfair basis.)
+
+**Fair comparison** ([`scripts/hecate_window_max.py`](scripts/hecate_window_max.py)): give every corpus
+mesh the same advantage -- its densest window of the same width, chosen by hecate itself -- and score
+every window, the candidate's included, with one support rule. Over 99 meshes: median
+0.0069, p90 0.0204, max 0.0335
+(`PHerc0800_z6272_w100`). The candidate window reads **0.1107**, **3.3x the best
+corpus window** and above known ink (0.0685).
 
 ### Why the strong reading is not just "a sheet is centred here"
 
@@ -154,8 +163,8 @@ At full resolution the band is 1-2 mm blobs with two ~5 mm horizontal streaks in
 letterforms** -- but known ink at 9 um shows no letterforms either, so appearance cannot settle it.
 
 **Status.** A localised deposit roughly 12 mm wide and 7 mm tall, on one sheet of an eligible scroll,
-that **two independent team ink models flag**, one of them twice as strongly as known ink, while 52 other
-corpus meshes sit 6x lower. **It is a candidate location, not a discovery.** Ink, stain and glue are all
+that **two independent team ink models flag**, one of them more strongly than known ink, while the best
+same-size window on 99 other corpus meshes is 3.3x lower. **It is a candidate location, not a discovery.** Ink, stain and glue are all
 still consistent with what is measured here; separating them needs a model that resolves letters or
 someone who reads 9 um CT for ink. If that is you, the numbers, scripts and predictions are all here.
 
