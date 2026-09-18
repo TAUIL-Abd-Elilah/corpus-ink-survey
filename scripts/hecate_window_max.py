@@ -8,10 +8,8 @@ window of the candidate's width across its hecate map in each direction and keep
 fraction.
 The window is chosen by hecate itself here, which favours the corpus, not the candidate.
 
-Support: the survey's own support (CT in the 16 central planes) needs the render, which is deleted
-after scoring. The kept ink_9um predictions give the rendered footprint instead (raw output > 0),
-resampled from native spacing to the 9.6 um hecate grid and eroded 64 px. The candidate window is
-scored with the same approximate support, so both sides are measured identically.
+Support: the mesh's own footprint (valid tifxyz cells) on the 9.6 um grid, eroded 64 px -- which
+matches the survey's CT-based support to within 1.3%. The candidate window is scored the same way.
 """
 import glob, json, os, sys
 import numpy as np
@@ -26,14 +24,18 @@ MIN_SUPPORT = 0.25    # a window must be at least this fraction supported to cou
 LEAD = "PHerc0813_z12496_w060"   # the candidate itself never counts as its own competitor
 
 
-def support_from_ink(name, tag, shape96, vox):
-    fs = [f"{P}/_fl/pred/{tag}/{name}_s{sd}_{st}.tif" for sd, st in cs.CKPTS]
-    if not all(os.path.exists(f) for f in fs):
-        return None
-    cov = np.stack([tifffile.imread(f) for f in fs]).max(0) > 0
-    cov = cv2.resize(cov.astype(np.uint8), (shape96[1], shape96[0]), interpolation=cv2.INTER_NEAREST)
+def footprint96(mesh_dir, shape96, cols=None):
+    """The mesh's own footprint (valid tifxyz cells, 20x corner-aligned), on the 9.6 um hecate grid,
+    eroded 64 px. An earlier version used ink_9um raw output > 0, which also counts ~20% tile padding
+    beyond the mesh where hecate outputs zero, diluting every window."""
+    X, Y, Z = (tifffile.imread(f"{mesh_dir}/{a}.tif") for a in "xyz")
+    ok = ((X >= 0) & (Y >= 0) & (Z >= 0)).astype(np.uint8)
+    if cols is not None:
+        ok = ok[:, cols[0]:cols[1]]
+    f = cv2.resize(np.kron(ok, np.ones((20, 20), np.uint8)), (shape96[1], shape96[0]),
+                   interpolation=cv2.INTER_NEAREST)
     k = 2 * cs.ERODE_PX + 1
-    return cv2.erode(cov, np.ones((k, k), np.uint8)).astype(bool)
+    return cv2.erode(f, np.ones((k, k), np.uint8)).astype(bool)
 
 
 def best_window(prob, sup):
@@ -69,9 +71,7 @@ def main():
             if not os.path.exists(png):
                 continue
             prob = cv2.imread(png, cv2.IMREAD_UNCHANGED) / 255.0
-            sup = support_from_ink(name, "corpus", prob.shape, cs.voxel_um(v["scroll"]))
-            if sup is None:
-                continue
+            sup = footprint96(f"{P}/_fl/meshes_eligible/{v['mesh']}", prob.shape)
             frac, x0 = best_window(prob, sup)
             if frac is not None:
                 best[d] = round(frac, 5)
@@ -80,11 +80,7 @@ def main():
             out[name] = dict(best_window_gt075=best[d], direction=d, **{f"{k}_gt075": x for k, x in best.items()})
     # the candidate, scored the same way on its own window render
     lead = cv2.imread(f"{P}/_fl/pred/hecate_s64/lead_forward.png", cv2.IMREAD_UNCHANGED) / 255.0
-    R = np.stack([tifffile.imread(f"{P}/_fl/pred/corpus/PHerc0813_z12496_w060_s{sd}_{st}.tif")[:, 3400:7200]
-                  for sd, st in cs.CKPTS])
-    cov = cv2.resize((R.max(0) > 0).astype(np.uint8), (lead.shape[1], lead.shape[0]), interpolation=cv2.INTER_NEAREST)
-    k = 2 * cs.ERODE_PX + 1
-    lsup = cv2.erode(cov, np.ones((k, k), np.uint8)).astype(bool)
+    lsup = footprint96(f"{P}/_fl/meshes_eligible/meshes/PHerc0813/z12496_w060", lead.shape, cols=(170, 360))
     lead_frac = float(((lead > 0.75) & lsup).sum() / max(lsup.sum(), 1))
     vals = np.array([x["best_window_gt075"] for x in out.values()])
     top = sorted(out.items(), key=lambda kv: -kv[1]["best_window_gt075"])[:5]

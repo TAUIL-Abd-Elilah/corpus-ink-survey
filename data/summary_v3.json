@@ -1,0 +1,151 @@
+{
+ "ink": {
+  "n_meshes": 324,
+  "no_ct": 3,
+  "total_cm2": 1518.2,
+  "per_scroll": {
+   "PHerc0800": [
+    92,
+    405.9
+   ],
+   "PHerc0211": [
+    82,
+    397.8
+   ],
+   "PHerc0813": [
+    71,
+    341.0
+   ],
+   "PHerc0125": [
+    61,
+    317.7
+   ],
+   "PHerc0257": [
+    6,
+    18.7
+   ],
+   "PHerc0268": [
+    6,
+    16.2
+   ],
+   "PHerc0826": [
+    3,
+    11.7
+   ],
+   "PHerc0358": [
+    3,
+    9.2
+   ]
+  },
+  "fwd_vs_control_min": 2.3,
+  "fwd_vs_control_median": 92.0,
+  "fwd_ratio_median": 8.3,
+  "meshes_nothing_above_075": 17,
+  "mesh_directions": 540,
+  "top": [
+   [
+    2.3,
+    "PHerc0813_z12496_w060",
+    "forward",
+    2.4
+   ],
+   [
+    3.4,
+    "PHerc0813_z13088_w040",
+    "forward",
+    3.27
+   ],
+   [
+    4.0,
+    "PHerc0211_z6720_w020",
+    "reverse",
+    3.26
+   ],
+   [
+    4.2,
+    "PHerc0813_z9504_w020",
+    "reverse",
+    3.41
+   ],
+   [
+    6.4,
+    "PHerc0211_z14512_w040",
+    "reverse",
+    2.96
+   ],
+   [
+    6.7,
+    "PHerc0211_z7312_w020",
+    "reverse",
+    5.29
+   ]
+  ],
+  "candidate": {
+   "forward": {
+    "area_cm2": 4.95,
+    "unanimous_gt05": 0.04441,
+    "unanimous_gt075": 0.01851,
+    "conf_ratio": 2.4,
+    "vs_control": 2.3
+   },
+   "reverse": {
+    "area_cm2": 4.95,
+    "unanimous_gt05": 0.00462,
+    "unanimous_gt075": 0.001,
+    "conf_ratio": 4.6,
+    "vs_control": 42.5
+   }
+  }
+ },
+ "hecate_window": {
+  "n": 178,
+  "median": 0.01293,
+  "p90": 0.02933,
+  "candidate": 0.12987,
+  "top5": [
+   [
+    "PHerc0211_z6720_w020",
+    0.11548,
+    "reverse"
+   ],
+   [
+    "PHerc0211_z7920_w020",
+    0.11443,
+    "reverse"
+   ],
+   [
+    "PHerc0813_z13088_w040",
+    0.07537,
+    "forward"
+   ],
+   [
+    "PHerc0211_z6112_w020",
+    0.07273,
+    "reverse"
+   ],
+   [
+    "PHerc0211_z9120_w020",
+    0.0677,
+    "reverse"
+   ]
+  ],
+  "forward_only_top": [
+   [
+    "PHerc0813_z13088_w040",
+    0.0754
+   ],
+   [
+    "PHerc0813_z6496_w040",
+    0.049
+   ],
+   [
+    "PHerc0800_z6272_w100",
+    0.044
+   ],
+   [
+    "PHerc0211_z6112_w080",
+    0.0335
+   ]
+  ]
+ }
+}

@@ -60,7 +60,10 @@ def main():
         h = v.get("hecate") if isinstance(v.get("hecate"), dict) else None
         if h and (h.get("forward") or {}).get("gt075") is not None and (h.get("reverse") or {}).get("gt075") is not None:
             H.append((h["forward"]["gt075"], h["reverse"]["gt075"]))
-        f_, r_ = (v.get("forward") or {}).get("unanimous_gt075"), (v.get("reverse") or {}).get("unanimous_gt075")
+    # ink_9um direction statistics on the v3 footprint scores (scripts/rescore_v3.py)
+    v3 = json.load(open(f"{P}/_fl/ink_v3_footprint.json"))
+    for r in v3.values():
+        f_, r_ = (r.get("forward") or {}).get("unanimous_gt075"), (r.get("reverse") or {}).get("unanimous_gt075")
         if f_ is not None and r_ is not None:
             I.append((f_, r_))
     H, I, e = np.array(H), np.array(I), 1e-4

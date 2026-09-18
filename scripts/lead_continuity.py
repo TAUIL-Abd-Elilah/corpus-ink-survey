@@ -7,7 +7,7 @@ repeat at the same (x, y) in the meshes above and below.
 Only meshes of the SAME wrap are informative: wrap labels on this scroll step ~2.84 mm in radius,
 which is a different sheet entirely, so "no hot pixels" on another wrap says nothing about this band.
 
-For each mesh: hot = ink_9um unanimous minimum > 0.75 over the fixed coverage mask (eroded 64 px);
+For each mesh: hot = ink_9um unanimous minimum > 0.75 over the mesh footprint (eroded 64 px);
 hot pixels are mapped through the tifxyz grid to scroll coordinates. Reported per mesh:
   - the (x, y) centroid and spread of hot pixels, and their z range
   - whether the mesh even COVERS the lead band's (x, y) column, because absence where there is no
@@ -59,12 +59,17 @@ def mesh_hot(name, rows):
         return None
     R = np.stack([tifffile.imread(f) for f in fs])
     S = np.stack([cs.rescale(r) for r in R])
-    k = 2 * cs.ERODE_PX + 1
-    cov = cv2.erode((R.max(0) > 0).astype(np.uint8), np.ones((k, k), np.uint8)).astype(bool)
-    hot = (S.min(0) > 0.75) & cov
     src = f"{P}/_fl/meshes_eligible/{v['mesh']}"
     X, Y, Z = (tifffile.imread(f"{src}/{a}.tif").astype(np.float32) for a in "xyz")
     ok = (X >= 0) & (Y >= 0) & (Z >= 0)
+    # coverage = the mesh's own footprint (v3), not raw model output > 0, which counts tile padding
+    k = 2 * cs.ERODE_PX + 1
+    foot = np.zeros(R.shape[1:], np.uint8)
+    f = np.kron(ok.astype(np.uint8), np.ones((20, 20), np.uint8))
+    h, w = min(foot.shape[0], f.shape[0]), min(foot.shape[1], f.shape[1])
+    foot[:h, :w] = f[:h, :w]
+    cov = cv2.erode(foot, np.ones((k, k), np.uint8)).astype(bool)
+    hot = (S.min(0) > 0.75) & cov
     gy, gx = (np.arange(s) for s in (hot.shape[0], hot.shape[1]))
     # pred pixel -> grid cell: the render upsamples the grid 20x, corner-aligned
     def to_coords(mask):

@@ -1,13 +1,54 @@
-# Ink-surveying the public eligible-scroll corpus
+"""Generate corpus-ink-survey/README.md from its data files, so no number is typed by hand."""
+import io
+import json
+import os
 
-**324 meshes and 1,518.2 cm² of mesh surface across all eight scrolls in the public
+R = r"D:/Competition/Vesuvius progress prizes/_fl/repo/corpus-ink-survey"
+J = lambda p: json.load(open(os.path.join(R, p)))
+
+S = J("data/summary_v3.json")
+ink, hw = S["ink"], S["hecate_window"]
+s64, s32 = J("data/hecate/eval_stride64.json"), J("data/hecate/eval_stride32.json")
+mc, d3 = J("data/hecate/matched_centring.json"), J("data/hecate/depth_3d.json")
+lc, mo = J("data/hecate/lead_continuity.json"), J("data/hecate/mesh_orientation.json")
+c = ink["candidate"]
+
+old = io.open(os.path.join(R, "README.md"), encoding="utf-8").read()
+i0 = old.index("## PHerc1447: the three segments")
+i1 = old.index("## Limitations", i0)
+p1447 = old[i0:i1].rstrip() + "\n"
+
+
+def f4(x):
+    return "%.4f" % x
+
+
+def win(name):
+    return f4([v for k, v, d in hw["top5"] if k == name][0])
+
+
+def mrow(k):
+    return " | ".join("%.4f" % b["fwd_gt075"] for b in mc[k]["bins"])
+
+
+scroll_rows = "\n".join(f"| {s} | {n} | {a:,.1f} |" for s, (n, a) in ink["per_scroll"].items())
+top_rows = "\n".join(f"| {i + 1} | `{k}` | {d} | {x:.1f}x | {r} |" for i, (x, k, d, r) in enumerate(ink["top"]))
+hw_rows = (f"| **`PHerc0813_z12496_w060` (the candidate)** | forward | **{f4(hw['candidate'])}** |\n"
+           + "\n".join(f"| `{k}` | {d} | {f4(v)} |" for k, v, d in hw["top5"]))
+ctl, na, nb = s64["control"], s64["neg_a"], s64["neg_b"]
+cf, cr = c["forward"], c["reverse"]
+fo = hw["forward_only_top"]
+
+readme = f"""# Ink-surveying the public eligible-scroll corpus
+
+**{ink['n_meshes']} meshes and {ink['total_cm2']:,.1f} cm² of mesh surface across all eight scrolls in the public
 First Letters corpus, scored by two models against a known-ink control: the published `ink_9um`
 checkpoints and the team's new `hecate` 9.6 um model. No letters seen. One region, on PHerc0813, stands
 out under both models on the face that carries text. A second feature, on PHerc0211's inner wrap,
 stands out on the opposite face. Both are published as candidate locations, not discoveries.**
 
-Status, 19 September: `ink_9um` is complete on every planned mesh. `hecate` has scored 178 of
-324 so far and the rest are running. This page has been corrected several times; the
+Status, 19 September: `ink_9um` is complete on every planned mesh. `hecate` has scored {hw['n']} of
+{ink['n_meshes']} so far and the rest are running. This page has been corrected several times; the
 corrections log at the end lists each one.
 
 ## The survey
@@ -15,7 +56,7 @@ corrections log at the end lists each one.
 Input: [`pscamillo/vesuvius-eligible-meshes`](https://github.com/pscamillo/vesuvius-eligible-meshes)
 (MIT): 340 meshes on eight eligible scrolls. The 11 meshes that cut across the papyrus at 30 degrees or
 more are skipped ([eligible-mesh-alignment](https://github.com/TAUIL-Abd-Elilah/eligible-mesh-alignment)),
-and 3 more have no CT under them.
+and {ink['no_ct']} more have no CT under them.
 
 Per mesh: render 31 layers along the surface normal; run **4 `ink_9um` checkpoints in both directions**;
 take the **unanimous minimum**; score the fraction above 0.75 over the **mesh's own footprint, eroded
@@ -24,28 +65,16 @@ take the **unanimous minimum**; score the fraction above 0.75 over the **mesh's 
 
 | scroll | meshes | footprint cm² |
 |---|---:|---:|
-| PHerc0800 | 92 | 405.9 |
-| PHerc0211 | 82 | 397.8 |
-| PHerc0813 | 71 | 341.0 |
-| PHerc0125 | 61 | 317.7 |
-| PHerc0257 | 6 | 18.7 |
-| PHerc0268 | 6 | 16.2 |
-| PHerc0826 | 3 | 11.7 |
-| PHerc0358 | 3 | 9.2 |
-| **total** | **324** | **1,518.2** |
+{scroll_rows}
+| **total** | **{ink['n_meshes']}** | **{ink['total_cm2']:,.1f}** |
 
-In the forward direction the median mesh is **92x** below control, with a
-median confidence ratio of 8.3 against the control's 2.07. 17 meshes have
-nothing above 0.75 in either direction. The strongest of 540 mesh-directions:
+In the forward direction the median mesh is **{ink['fwd_vs_control_median']:.0f}x** below control, with a
+median confidence ratio of {ink['fwd_ratio_median']:.1f} against the control's 2.07. {ink['meshes_nothing_above_075']} meshes have
+nothing above 0.75 in either direction. The strongest of {ink['mesh_directions']} mesh-directions:
 
 | rank | mesh | direction | below control | confidence ratio |
 |---:|---|---|---:|---:|
-| 1 | `PHerc0813_z12496_w060` | forward | 2.3x | 2.4 |
-| 2 | `PHerc0813_z13088_w040` | forward | 3.4x | 3.27 |
-| 3 | `PHerc0211_z6720_w020` | reverse | 4.0x | 3.26 |
-| 4 | `PHerc0813_z9504_w020` | reverse | 4.2x | 3.41 |
-| 5 | `PHerc0211_z14512_w040` | reverse | 6.4x | 2.96 |
-| 6 | `PHerc0211_z7312_w020` | reverse | 6.7x | 5.29 |
+{top_rows}
 
 `ink_9um` localises ink but does not resolve letters even on training scrolls. A negative here means
 "this model recovered no text", not "there is no ink".
@@ -62,9 +91,9 @@ Checkpoint commit `9cb86e5`, sha256 `809f4f10...fe5d`.
 
 | case | fwd >0.5 | **fwd >0.75** | ratio | rev >0.75 | ink_9um on the same window |
 |---|---:|---:|---:|---:|---|
-| known ink, PHerc0139 w043 (3 x 3 cm) | 0.1278 | **0.0685** | 1.87 | 0.0170 | the control |
-| PHerc0813_z6496_w060, ink_9um-blank | 0.0196 | 0.0048 | 4.09 | 0.0161 | 49x below |
-| PHerc0813_z13696_w060, ink_9um-blank | 0.0342 | 0.0147 | 2.33 | 0.0202 | 205x below |
+| known ink, PHerc0139 w043 (3 x 3 cm) | {f4(ctl['forward']['gt05'])} | **{f4(ctl['forward']['gt075'])}** | {ctl['forward']['ratio']} | {f4(ctl['reverse']['gt075'])} | the control |
+| PHerc0813_z6496_w060, ink_9um-blank | {f4(na['forward']['gt05'])} | {f4(na['forward']['gt075'])} | {na['forward']['ratio']} | {f4(na['reverse']['gt075'])} | {s32['neg_a']['ink_9um_same_window']['forward']['vs_control']:.0f}x below |
+| PHerc0813_z13696_w060, ink_9um-blank | {f4(nb['forward']['gt05'])} | {f4(nb['forward']['gt075'])} | {nb['forward']['ratio']} | {f4(nb['reverse']['gt075'])} | {s32['neg_b']['ink_9um_same_window']['forward']['vs_control']:.0f}x below |
 
 ![four cases](figures/hecate_four_cases.png)
 
@@ -75,43 +104,38 @@ text line.
 
 Picking a mesh's densest window inflates its score, so every mesh gets the same advantage: its densest
 window of the candidate's width (3.56 cm), **in either direction**, over the mesh footprint
-([`scripts/hecate_window_max.py`](scripts/hecate_window_max.py)). Over 178 meshes: median
-0.0129, p90 0.0293.
+([`scripts/hecate_window_max.py`](scripts/hecate_window_max.py)). Over {hw['n']} meshes: median
+{f4(hw['median'])}, p90 {f4(hw['p90'])}.
 
 | best same-width window | direction | hecate >0.75 |
 |---|---|---:|
-| **`PHerc0813_z12496_w060` (the candidate)** | forward | **0.1299** |
-| `PHerc0211_z6720_w020` | reverse | 0.1155 |
-| `PHerc0211_z7920_w020` | reverse | 0.1144 |
-| `PHerc0813_z13088_w040` | forward | 0.0754 |
-| `PHerc0211_z6112_w020` | reverse | 0.0727 |
-| `PHerc0211_z9120_w020` | reverse | 0.0677 |
+{hw_rows}
 
-Forward only, which is the text face (see below): the candidate reads 0.1299, then its own
-neighbour `PHerc0813_z13088_w040` 0.0754, then nothing above 0.0490.
+Forward only, which is the text face (see below): the candidate reads {f4(hw['candidate'])}, then its own
+neighbour `{fo[0][0]}` {f4(fo[0][1])}, then nothing above {f4(fo[1][1])}.
 
 ### What the direction means: forward is the face that carries text
 
 A circle fitted through each grid row gives the local centre of curvature, on the core's side
 ([`scripts/mesh_orientation.py`](scripts/mesh_orientation.py)). The surface normal points **toward the
-core** on all 324 of 324 corpus meshes. It does the same on the published
-PHerc0139 w043 mesh used as the control (outward share 0.003), whose ink reads
+core** on all {mo['n_inward']} of {mo['n_meshes']} corpus meshes. It does the same on the published
+PHerc0139 w043 mesh used as the control (outward share {mo['control_outward_share']:.3f}), whose ink reads
 **forward**. So on every mesh, forward is the face that carries text on the control.
 
 On ordinary papyrus hecate runs slightly high in reverse: reverse beats forward on
-61% of 179 meshes, median ratio 1.15. ink_9um shows no
-such tilt (44% of 324, median 1.00). A reverse response is
+{mo['hecate']['share_rev_gt_fwd']:.0%} of {mo['hecate']['n']} meshes, median ratio {mo['hecate']['median_rev_over_fwd']:.2f}. ink_9um shows no
+such tilt ({mo['ink_9um']['share_rev_gt_fwd']:.0%} of {mo['ink_9um']['n']}, median {mo['ink_9um']['median_rev_over_fwd']:.2f}). A reverse response is
 therefore weaker evidence than the same number forward.
 
 ## Candidate 1: PHerc0813_z12496_w060, forward (the text face)
 
 | | ink_9um >0.5 | ink_9um >0.75 | ratio | below control |
 |---|---:|---:|---:|---:|
-| **forward** | 0.04441 | **0.01851** | **2.4** | **2.3x** |
-| reverse | 0.00462 | 0.00100 | 4.6 | 42.5x |
+| **forward** | {cf['unanimous_gt05']:.5f} | **{cf['unanimous_gt075']:.5f}** | **{cf['conf_ratio']}** | **{cf['vs_control']}x** |
+| reverse | {cr['unanimous_gt05']:.5f} | {cr['unanimous_gt075']:.5f} | {cr['conf_ratio']} | {cr['vs_control']}x |
 
-It is first in the survey under ink_9um and first in the corpus under hecate (0.1299
-against known ink's 0.0685). The response is one-sided and on the text face.
+It is first in the survey under ink_9um and first in the corpus under hecate ({f4(hw['candidate'])}
+against known ink's {f4(ctl['forward']['gt075'])}). The response is one-sided and on the text face.
 
 **Sheet geometry doesn't explain it.** Pixels are binned by how well a sheet is centred in the render
 (central-minus-outer CT, pooled quintiles; [`scripts/hecate_matched.py`](scripts/hecate_matched.py),
@@ -119,10 +143,10 @@ stride 32). hecate forward >0.75:
 
 | | q1 (off-sheet) | q2 | q3 | q4 | q5 (well centred) |
 |---|---:|---:|---:|---:|---:|
-| known ink | 0.0240 | 0.0401 | 0.0533 | 0.0687 | 0.1028 |
-| **candidate** | 0.0782 | 0.1132 | 0.1374 | 0.1736 | 0.2530 |
-| blank A | 0.0016 | 0.0024 | 0.0026 | 0.0050 | 0.0077 |
-| blank B | 0.0070 | 0.0117 | 0.0151 | 0.0159 | 0.0152 |
+| known ink | {mrow('control')} |
+| **candidate** | {mrow('lead')} |
+| blank A | {mrow('neg_a')} |
+| blank B | {mrow('neg_b')} |
 
 **It is a compact patch, not a seam.** Across its 74 mm mesh the response is one band about 12 mm
 wide. The table below measures the band's own (x, y) column on the same wrap
@@ -131,9 +155,9 @@ same-wrap meshes compare.
 
 | mesh, wrap w060 | hot fraction in the band's column |
 |---|---:|
-| **z12496 (the candidate)** | **0.0561** |
-| z11904, ~7 mm below | 0.0127 |
-| z13088, ~7 mm above | 0.0016 |
+| **z12496 (the candidate)** | **{lc['PHerc0813_z12496_w060']['hot_fraction_in_column']:.4f}** |
+| z11904, ~7 mm below | {lc['PHerc0813_z11904_w060']['hot_fraction_in_column']:.4f} |
+| z13088, ~7 mm above | {lc['PHerc0813_z13088_w060']['hot_fraction_in_column']:.4f} |
 
 A kollesis runs the full height of the roll, so a sheet join should not fade like that. In the CT, the
 sheet inside the band is the same thickness as beside it (~96 um) and ~20% denser at its peak.
@@ -147,10 +171,10 @@ sheet inside the band is the same thickness as beside it (~96 um) and ~20% dense
 
 | case | ink peak vs CT sheet peak | ink layer FWHM | peak probability |
 |---|---:|---:|---:|
-| known ink | +10 um | 48 um | 0.53 |
-| candidate | +29 um | 77 um | 0.37 |
-| blank A | +29 um | 67 um | 0.41 |
-| blank B | +0 um | 67 um | 0.44 |
+| known ink | {d3['control']['offset_um']:+.0f} um | {d3['control']['ink_fwhm_um']:.0f} um | {d3['control']['ink_max']:.2f} |
+| candidate | {d3['lead']['offset_um']:+.0f} um | {d3['lead']['ink_fwhm_um']:.0f} um | {d3['lead']['ink_max']:.2f} |
+| blank A | {d3['neg_a']['offset_um']:+.0f} um | {d3['neg_a']['ink_fwhm_um']:.0f} um | {d3['neg_a']['ink_max']:.2f} |
+| blank B | {d3['neg_b']['offset_um']:+.0f} um | {d3['neg_b']['ink_fwhm_um']:.0f} um | {d3['neg_b']['ink_max']:.2f} |
 
 All four sit in a thin layer within 30 um of the sheet, so **depth placement does not separate the
 candidate from blank papyrus**. Only peak strength differs.
@@ -163,8 +187,8 @@ is measured here. A model that resolves letters, or someone who reads 9 um CT fo
 ## Candidate 2: PHerc0211's inner wrap, reverse (the opposite face)
 
 On PHerc0211's inner wrap (w020), hecate reads high in **reverse** on a vertical stretch from z6112 to
-z9120: `z6112_w020` 0.0727, `z6720_w020` 0.1155,
-`z7920_w020` 0.1144, `z9120_w020` 0.0677. `z7312_w020` is not
+z9120: `z6112_w020` {win('PHerc0211_z6112_w020')}, `z6720_w020` {win('PHerc0211_z6720_w020')},
+`z7920_w020` {win('PHerc0211_z7920_w020')}, `z9120_w020` {win('PHerc0211_z9120_w020')}. `z7312_w020` is not
 scored yet. ink_9um agrees in the same direction: `z6720_w020` is 4.0x below control in reverse and
 `z7312_w020` is 6.7x.
 
@@ -179,28 +203,11 @@ A note on the maps: at stride 64, hecate's 0.6 mm tiles do not overlap, so the m
 (each tile's depth attention settles on a sheet independently). The calibration still separates known
 ink from blank papyrus at this setting, but single maps are noisier than at stride 32.
 
-## PHerc1447: the three segments a maintainer would not rule out
-
-FrankTheRope flagged row-like banding at 3.5–4 mm in raw meshes `z_dbg_gen_00215/00260/00701`;
-Bruniss replied he "would not necessarily say those _arent_ letters/text". Re-scored with the fixed
-mask ([`data/pherc1447_flagged_scores.json`](data/pherc1447_flagged_scores.json)):
-
-| segment | >0.75 fwd / rev | ratio fwd / rev | vs control fwd / rev |
-|---|---:|---:|---:|
-| 00215 | 0.00613 / 0.00563 | 5.72 / 6.20 | 7.0× / 7.6× |
-| 00260 | 0.00577 / 0.00489 | 5.22 / 6.32 | 7.4× / 8.7× |
-| 00701 | 0.00499 / 0.00473 | 6.21 / 5.93 | 8.6× / 9.0× |
-
-All diffuse, 7–9× below control. **Read this with the geometry**
-([eligible-mesh-alignment](https://github.com/TAUIL-Abd-Elilah/eligible-mesh-alignment)): the
-published PHerc1447 surfaces sit on nonzero CT a median 46% of the time, and those lying entirely on
-CT cut across the sheets at 50–71°. `00260` and `00701` are among them (49.9° and 68.2°). These
-surfaces are not a fair test of whether PHerc1447 has text.
-
+{p1447}
 ## Limitations
 
 - There is one known-ink control, from one 3 x 3 cm crop. Anything calibrated on it is provisional.
-- hecate has scored 178 of 324 meshes so far, so its corpus numbers are a snapshot.
+- hecate has scored {hw['n']} of {ink['n_meshes']} meshes so far, so its corpus numbers are a snapshot.
 - The survey renders are not kept (only the predictions are), so CT-based checks need a re-render.
 - The run is bandwidth-bound at ~600 KB/s.
 - No discovery is claimed.
@@ -249,3 +256,7 @@ team.
 
 MIT · Vesuvius Challenge, September 2026 · AI assistance (Claude) under my direction; I set the
 questions, chose the controls, and checked the numbers.
+"""
+
+io.open(os.path.join(R, "README.md"), "w", encoding="utf-8").write(readme)
+print(len(readme.splitlines()), "lines written")

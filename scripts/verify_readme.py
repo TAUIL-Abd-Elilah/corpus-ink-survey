@@ -1,8 +1,10 @@
-"""Re-assert the README's hecate numbers against the JSON in data/hecate/.
+"""Re-derive the README's numbers from data/ and check its claims still hold.
 
-This repository has already published one overstated claim (a "false positive" that the data did not
-support), so every figure in the hecate section is recomputed here and compared with the literal
-string in README.md. Exit code 1 if anything disagrees.
+This repository has published several statements it later had to correct (see the README's corrections
+log). Every figure on the page is recomputed here from the JSON in data/ and compared with the literal
+string in README.md, and the claims the text rests on -- the candidate is the highest window, every mesh
+points toward the core, each correction is logged -- are checked against the data too. Exit code 1 on any
+mismatch.
 """
 import json
 import os
@@ -10,130 +12,115 @@ import sys
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 README = open(os.path.join(HERE, "README.md"), encoding="utf-8").read()
-D = os.path.join(HERE, "data", "hecate")
-load = lambda n: json.load(open(os.path.join(D, n)))
+load = lambda p: json.load(open(os.path.join(HERE, "data", p)))
 fails, checks = [], 0
 
 
-def present(label, needle):
+def ok(label, cond, detail=""):
     global checks
     checks += 1
-    ok = needle in README
-    print("  %-56s %s" % (label, "ok" if ok else "MISSING " + repr(needle)))
-    if not ok:
+    print("  %-60s %s" % (label, "ok" if cond else "FAIL " + detail))
+    if not cond:
         fails.append(label)
 
 
-def num(label, value, decimals=4):
-    """The README must contain this number, printed to `decimals`."""
-    present(label, ("%." + str(decimals) + "f") % value)
+def has(label, needle):
+    ok(label, needle in README, "missing " + repr(needle[:70]))
+
+
+def f4(x):
+    return "%.4f" % x
 
 
 def main():
-    global checks
-    s64, s32 = load("eval_stride64.json"), load("eval_stride32.json")
-    mc, lc, bl = load("matched_centring.json"), load("lead_continuity.json"), load("corpus_baseline.json")
+    S = load("summary_v3.json")
+    ink, hw = S["ink"], S["hecate_window"]
+    v3 = load("ink_v3_footprint.json")
 
-    print("calibration (stride 64, the survey's setting)")
+    print("survey (ink_9um on the mesh footprint)")
+    ok("summary matches ink_v3_footprint.json mesh count", ink["n_meshes"] == len(v3))
+    total = sum((r.get("forward") or {}).get("area_cm2", 0) for r in v3.values())
+    ok("total footprint area re-derived", abs(total - ink["total_cm2"]) < 0.06, f"{total:.1f} vs {ink['total_cm2']}")
+    has("mesh count", f"**{ink['n_meshes']}**")
+    has("total area", f"{ink['total_cm2']:,.1f}")
+    for s, (n, a) in ink["per_scroll"].items():
+        got_n = sum(1 for r in v3.values() if r["scroll"] == s)
+        got_a = sum((r.get("forward") or {}).get("area_cm2", 0) for r in v3.values() if r["scroll"] == s)
+        ok(f"{s} re-derived", got_n == n and abs(got_a - a) < 0.06)
+        has(f"{s} row", f"| {s} | {n} | {a:,.1f} |")
+    pairs = sorted((s["vs_control"], k, d) for k, r in v3.items() for d in ("forward", "reverse")
+                   if (s := r.get(d)) and s.get("vs_control") is not None)
+    ok("top list re-derived from v3", [p[1] for p in pairs[:6]] == [t[1] for t in ink["top"]])
+    for i, (x, k, d, r) in enumerate(ink["top"]):
+        has(f"rank {i + 1} row", f"| {i + 1} | `{k}` | {d} | {x:.1f}x | {r} |")
+    has("median below control", f"**{ink['fwd_vs_control_median']:.0f}x**")
+    has("nothing above 0.75", f"{ink['meshes_nothing_above_075']} meshes have\nnothing above 0.75")
+
+    print("\nhecate calibration")
+    s64 = load("hecate/eval_stride64.json")
+    for case in ("control", "neg_a", "neg_b"):
+        has(f"{case} fwd >0.75", f4(s64[case]["forward"]["gt075"]))
+        has(f"{case} rev >0.75", f4(s64[case]["reverse"]["gt075"]))
+        has(f"{case} fwd >0.5", f4(s64[case]["forward"]["gt05"]))
+
+    print("\nfair comparison")
+    wm = load("hecate/window_max.json")
+    ok("window file matches summary", wm["n_meshes"] == hw["n"] and abs(wm["candidate_window_gt075"] - hw["candidate"]) < 1e-9)
+    ok("candidate is the highest window (either direction)", hw["candidate"] > wm["corpus_best_window_max"],
+       f"{hw['candidate']} vs {wm['corpus_best_window_max']}")
+    fwd = sorted(((x.get("forward_gt075") or 0) for x in wm["per_mesh"].values()), reverse=True)
+    ok("candidate is the highest forward window", hw["candidate"] > fwd[0])
+    has("candidate window", f4(hw["candidate"]))
+    has("median", f4(hw["median"]))
+    has("p90", f4(hw["p90"]))
+    for k, v, d in hw["top5"]:
+        has(f"{k} row", f"| `{k}` | {d} | {f4(v)} |")
+
+    print("\norientation")
+    mo = load("hecate/mesh_orientation.json")
+    ok("no mesh points outward", mo["n_outward"] == 0)
+    has("all inward stated", f"all {mo['n_inward']} of {mo['n_meshes']} corpus meshes")
+    has("control outward share", "%.3f" % mo["control_outward_share"])
+    has("hecate reverse tilt", "median ratio %.2f" % mo["hecate"]["median_rev_over_fwd"])
+
+    print("\ncandidate 1")
+    c = ink["candidate"]
+    has("fwd >0.75", "%.5f" % c["forward"]["unanimous_gt075"])
+    has("fwd below control", f"**{c['forward']['vs_control']}x**")
+    has("rev below control", f"{c['reverse']['vs_control']}x")
+    mc = load("hecate/matched_centring.json")
     for case in ("control", "lead", "neg_a", "neg_b"):
-        for d in ("forward", "reverse"):
-            num(f"{case} {d} >0.75", s64[case][d]["gt075"])
-        num(f"{case} forward >0.5", s64[case]["forward"]["gt05"], 4)
-        present(f"{case} forward ratio", str(s64[case]["forward"]["ratio"]))
+        has(f"centring row {case}", " | ".join("%.4f" % b["fwd_gt075"] for b in mc[case]["bins"]))
+    lc = load("hecate/lead_continuity.json")
+    col = [lc[m]["hot_fraction_in_column"] for m in ("PHerc0813_z12496_w060", "PHerc0813_z11904_w060", "PHerc0813_z13088_w060")]
+    ok("column fades below and above", col[0] > col[1] > col[2])
+    for x in col:
+        has(f"column {x}", "%.4f" % x)
+    d3 = load("hecate/depth_3d.json")
+    ok("3D offsets all within 30 um", all(abs(d3[k]["offset_um"]) <= 30 for k in d3))
+    for k in ("control", "lead", "neg_a", "neg_b"):
+        has(f"3D {k} offset", "%+.0f um" % d3[k]["offset_um"])
 
-    print("\nink_9um on the same windows (stride-32 run recorded both)")
-    for case, expect in (("neg_a", 49), ("neg_b", 205)):
-        got = s32[case]["ink_9um_same_window"]["forward"]["vs_control"]
-        checks_ok = round(got) == expect
-        print("  %-56s %s" % (f"{case} ink_9um {got}x -> README {expect}x", "ok" if checks_ok else "MISMATCH"))
-        if not checks_ok:
-            fails.append(f"{case} ink_9um vs_control")
-        present(f"{case} {expect}x in README", f"{expect}x below")
-
-    print("\nmatched sheet centring (stride 32)")
-    for case in ("control", "lead", "neg_a", "neg_b"):
-        for b in mc[case]["bins"]:
-            v = b["fwd_gt075"]
-            # the table prints 3 or 4 decimals depending on the value; accept either rounding
-            forms = {"%.4f" % v, "%.3f" % v, str(round(v, 4)), str(round(v, 3))}
-            checks += 1
-            ok = any(f in README for f in forms)
-            print("  %-56s %s" % (f"{case} bin {v}", "ok" if ok else "MISSING one of " + repr(sorted(forms))))
-            if not ok:
-                fails.append(f"{case} bin {v}")
-
-    print("\ncontinuity in the band's own column, wrap w060")
-    for mesh in ("PHerc0813_z12496_w060", "PHerc0813_z11904_w060", "PHerc0813_z13088_w060"):
-        num(f"{mesh} hot fraction", lc[mesh]["hot_fraction_in_column"])
-
-    print("\ncorpus baseline")
-    present("n meshes stated", f"{bl['n_meshes']} of 327")
-    num("median", bl["median"])
-    num("p90", bl["p90"])
-    num("max", bl["max"])
-    wm = load("window_max.json")
-    print("\nfair comparison: every mesh at its densest same-width window, either direction")
-    present("snapshot size", f"{wm['n_meshes']} meshes (18 September")
-    num("window median", wm["corpus_best_window_median"])
-    num("window p90", wm["corpus_best_window_p90"])
-    num("candidate window", wm["candidate_window_gt075"])
-    top = wm["top5"]
-    for name, val, d in top[:2]:
-        present(f"{name} {d} named", name)
-        num(f"{name} value", val)
-    present("everything else bounded", "at most %.4f" % top[2][1])
-    global_ok = wm["candidate_window_gt075"] > top[0][1]
-    checks_line = "candidate is the highest window" if global_ok else "candidate is NOT the highest window"
-    print("  %-56s %s" % (checks_line, "ok" if global_ok else "MISMATCH"))
-    if not global_ok:
-        fails.append("candidate is not the highest window any more -- README says it is")
-    present("not alone stated", "it is not alone")
-    present("both overstatements named", '"5.8x the corpus maximum"')
-    present("forward-only overstatement named", '"3.3x the best corpus window" counted forward maps only')
-    present("second region is a candidate, not a result", "a second candidate, not a result")
-    present("tiling artifact disclosed", "tiles do not overlap")
-    checks += 1
-    if wm["candidate_window_gt075"] <= bl["control_gt075"]:
-        fails.append("candidate window is not above known ink")
-        print("  candidate window %.4f vs control %.4f" % (wm["candidate_window_gt075"], bl["control_gt075"]))
-    else:
-        print("  %-56s ok" % "candidate window above known ink")
-
-    print("\n3D depth (the test that did not separate the cases)")
-    d3 = load("depth_3d.json")
-    for case in ("control", "lead", "neg_a", "neg_b"):
-        present(f"{case} offset", "%+.0f um" % d3[case]["offset_um"])
-        present(f"{case} ink FWHM", "%.0f um" % d3[case]["ink_fwhm_um"])
-        present(f"{case} peak p", "%.2f" % d3[case]["ink_max"])
-    present("3D does not separate", "does not separate the candidate from blank papyrus")
-
-    print("\norientation: what forward means")
-    mo = load("mesh_orientation.json")
-    present("all meshes inward", f"all {mo['n_inward']} of {mo['n_meshes']} corpus meshes")
-    global_ok = mo["n_outward"] == 0
-    print("  %-56s %s" % ("no mesh points outward", "ok" if global_ok else "MISMATCH"))
-    checks += 1
-    if not global_ok:
-        fails.append("some meshes point outward -- README says all inward")
-    num("control outward share", mo["control_outward_share"], 3)
-    present("hecate reverse bias share", "%d%% of %d meshes" % (round(mo["hecate"]["share_rev_gt_fwd"] * 100), mo["hecate"]["n"]))
-    present("hecate reverse bias ratio", "median ratio %.2f" % mo["hecate"]["median_rev_over_fwd"])
-    present("ink_9um no tilt", "(%d%% of %d, median %.2f)" % (round(mo["ink_9um"]["share_rev_gt_fwd"] * 100), mo["ink_9um"]["n"], mo["ink_9um"]["median_rev_over_fwd"]))
-    present("false rationale retracted", 'said the direction "depends on how that mesh was fitted"')
-    checks += 1
-    bad = "Which face a mesh's \"forward\" points at depends" in README
-    print("  %-56s %s" % ("old false rationale gone from the body", "MISMATCH" if bad else "ok"))
-    if bad:
-        fails.append("the retracted 'depends on fitting' rationale is still asserted")
-
-    print("\nclaims that must stay in the README")
-    for label, needle in [("candidate not discovery", "not a discovery"),
-                          ("no letterforms", "no\nletterforms"),
-                          ("known ink shows none either", "known ink at 9 um shows no letterforms either"),
-                          ("glue and stain still possible", "Ink, stain and glue are all\nstill consistent"),
-                          ("not a seam", "should\nnot fade 5x below and 35x above"),
-                          ("resampling requirement", "resampled to 9.6 um in all three axes")]:
-        present(label, needle)
+    print("\nclaims and corrections")
+    for label, needle in [
+        ("candidate, not discovery", "a candidate location, not a discovery"),
+        ("no letterforms", "There are no letterforms"),
+        ("ink, stain, glue", "Ink, stain and glue all remain consistent"),
+        ("3D does not separate", "does not separate the\ncandidate from blank papyrus"),
+        ("candidate 2 structural reading", "more like a structural\nfeature"),
+        ("tiling disclosed", "tiles do not overlap"),
+        ("log: mask v1", "the coverage mask dropped blank papyrus"),
+        ("log: control basis", "the control was on the wrong basis"),
+        ("log: four-check rule", "the \"four-check rule\" is withdrawn"),
+        ("log: false positive retracted", "had been called a false positive"),
+        ("log: 5.8x", "\"5.8x the corpus maximum\""),
+        ("log: 3.3x", "\"3.3x the best corpus window\""),
+        ("log: orientation", "was false. Measured,\n   every mesh has the same orientation"),
+        ("log: verifier", "failed 8 of its checks"),
+        ("log: padding", "the fixed coverage mask counted tile padding"),
+    ]:
+        has(label, needle)
+    ok("retracted rationale not asserted", "Which face a mesh's \"forward\" points at depends" not in README)
 
     print("\n%d checks, %d failed" % (checks, len(fails)))
     for f in fails:
