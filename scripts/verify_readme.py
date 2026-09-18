@@ -72,14 +72,26 @@ def main():
     num("p90", bl["p90"])
     num("max", bl["max"])
     wm = load("window_max.json")
-    print("\nfair comparison: every mesh at its densest same-width window")
+    print("\nfair comparison: every mesh at its densest same-width window, either direction")
+    present("snapshot size", f"{wm['n_meshes']} meshes (18 September")
     num("window median", wm["corpus_best_window_median"])
     num("window p90", wm["corpus_best_window_p90"])
-    num("window max", wm["corpus_best_window_max"])
     num("candidate window", wm["candidate_window_gt075"])
-    present("window ratio", "%.1fx the best\ncorpus window" % (wm["candidate_window_gt075"] / wm["corpus_best_window_max"]))
-    present("unfair basis admitted", "not a fair\nyardstick")
-    present("old 5.8x claim named", '"5.8x\nthe corpus maximum"')
+    top = wm["top5"]
+    for name, val, d in top[:2]:
+        present(f"{name} {d} named", name)
+        num(f"{name} value", val)
+    present("everything else bounded", "at most %.4f" % top[2][1])
+    global_ok = wm["candidate_window_gt075"] > top[0][1]
+    checks_line = "candidate is the highest window" if global_ok else "candidate is NOT the highest window"
+    print("  %-56s %s" % (checks_line, "ok" if global_ok else "MISMATCH"))
+    if not global_ok:
+        fails.append("candidate is not the highest window any more -- README says it is")
+    present("not alone stated", "it is not alone")
+    present("both overstatements named", '"5.8x the corpus maximum"')
+    present("forward-only overstatement named", '"3.3x the best corpus window" counted forward maps only')
+    present("second region is a candidate, not a result", "a second candidate, not a result")
+    present("tiling artifact disclosed", "tiles do not overlap")
     checks += 1
     if wm["candidate_window_gt075"] <= bl["control_gt075"]:
         fails.append("candidate window is not above known ink")

@@ -115,15 +115,38 @@ ink_9um's at r = 0.61, and both models show the control's bottom text line.
 **Corpus baseline so far** (`data/hecate/corpus_baseline.json`, 100 of 327 meshes scored, run continuing):
 median **0.0059**, p90 0.0155, max 0.0234. Those are whole-mesh scores, which is **not a fair
 yardstick** for the strongest region: its 0.1353 comes from a window picked because ink_9um was densest
-there, and picking the best window inflates any score. (An earlier version of this page called it "5.8x
-the corpus maximum" on exactly that unfair basis.)
+there, and picking the best window inflates any score.
 
 **Fair comparison** ([`scripts/hecate_window_max.py`](scripts/hecate_window_max.py)): give every corpus
-mesh the same advantage -- its densest window of the same width, chosen by hecate itself -- and score
-every window, the candidate's included, with one support rule. Over 99 meshes: median
-0.0069, p90 0.0204, max 0.0335
-(`PHerc0800_z6272_w100`). The candidate window reads **0.1107**, **3.3x the best
-corpus window** and above known ink (0.0685).
+mesh the same advantage -- its densest window of the same width, **in either direction**, chosen by
+hecate itself -- and score every window, the candidate's included, with one support rule. Snapshot over
+149 meshes (18 September, backfill continuing): median 0.0109, p90 0.0250.
+
+| best same-width window | direction | hecate >0.75 |
+|---|---|---:|
+| **PHerc0813_z12496_w060 (the candidate)** | forward | **0.1107** |
+| **PHerc0211_z6720_w020** | reverse | **0.0900** |
+| **PHerc0813_z13088_w040** | forward | **0.0635** |
+| every other mesh | | at most 0.0405 |
+
+**The candidate is the highest window, but it is not alone.** Two earlier versions of this page
+overstated the gap: "5.8x the corpus maximum" compared a picked window with whole-mesh averages, and
+"3.3x the best corpus window" counted forward maps only. Which face a mesh's "forward" points at depends
+on how that mesh was fitted, so reverse counts as much as forward. `PHerc0813_z13088_w040` is the mesh directly above
+the candidate, one wrap inward, and ink_9um ranks it third of 616 mesh-directions.
+
+### A second region: PHerc0211_z6720_w020
+
+![second region](figures/second_region_0211.png)
+
+On a different scroll, in the **reverse** direction, both models agree: hecate reverse reads 0.115 over
+the whole 1.96 cm² mesh (forward 0.026), and ink_9um reverse is 5.7x below its control (forward 45x),
+fourth of 616 mesh-directions. Both concentrate in the right half. It has not yet been through the
+centring, shape and continuity checks the first region has, so it is **a second candidate, not a result**.
+
+Note on the maps: the survey runs hecate at stride 64, where its 0.6 mm tiles do not overlap, so maps
+show square blocks (each tile's depth attention settles on a sheet independently). The calibration above
+still separates known ink from blank papyrus at this setting; single maps are noisier than at stride 32.
 
 ### Why the strong reading is not just "a sheet is centred here"
 
@@ -163,8 +186,8 @@ At full resolution the band is 1-2 mm blobs with two ~5 mm horizontal streaks in
 letterforms** -- but known ink at 9 um shows no letterforms either, so appearance cannot settle it.
 
 **Status.** A localised deposit roughly 12 mm wide and 7 mm tall, on one sheet of an eligible scroll,
-that **two independent team ink models flag**, one of them more strongly than known ink, while the best
-same-size window on 99 other corpus meshes is 3.3x lower. **It is a candidate location, not a discovery.** Ink, stain and glue are all
+that **two independent team ink models flag**, one of them more strongly than known ink. Of 149 meshes scored so far it is the
+highest, with two other regions in the same range (above). **It is a candidate location, not a discovery.** Ink, stain and glue are all
 still consistent with what is measured here; separating them needs a model that resolves letters or
 someone who reads 9 um CT for ink. If that is you, the numbers, scripts and predictions are all here.
 
